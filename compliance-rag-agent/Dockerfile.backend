@@ -1,0 +1,42 @@
+# ==============================================================================
+# Dockerfile.backend - Python 3.11 + Django 5.x + ChromaDB
+# ==============================================================================
+FROM python:3.11-slim
+
+# Prevent Python from buffering stdout/stderr and writing .pyc files
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python requirements
+COPY requirements.txt /app/requirements.txt
+RUN pip install --upgrade pip && \
+    pip install -r /app/requirements.txt
+
+# Create persistent storage directories for ChromaDB and SQLite
+RUN mkdir -p /app/chroma_data /app/db_data /app/backend
+
+# Copy backend code
+COPY backend /app/backend
+
+WORKDIR /app/backend
+
+# Expose DRF API port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/api/rag/health/ || exit 1
+
+# Default development entrypoint: run migrations then launch DRF server
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]

@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Backend API: Django 5.x + DRF + ChromaDB + LangChain Core
+  # ============================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: compliance_rag_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - chroma_data:/app/chroma_data
+      - db_data:/app/db_data
+    environment:
+      - DJANGO_SECRET_KEY=dev-compliance-rag-secret-key-local-9092
+      - DEBUG=True
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend,0.0.0.0
+      - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000
+      - CHROMA_PERSIST_DIR=/app/chroma_data
+      - CHROMA_COLLECTION_NAME=engineering_compliance_standards
+      - DB_SQLITE_PATH=/app/db_data/db.sqlite3
+      # Uncomment to use PostgreSQL service:
+      # - DATABASE_URL=postgres://compliance_user:compliance_pass@postgres:5432/compliance_rag
+    restart: unless-stopped
+    networks:
+      - compliance_network
+
+  # ============================================================================
+  # Frontend: React 18+ (Vite, TailwindCSS, PWA, Mobile-First UI)
+  # ============================================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      target: development
+    container_name: compliance_rag_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - compliance_network
+
+  # ============================================================================
+  # Optional Production Database: PostgreSQL (enable with --profile production)
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: compliance_rag_postgres
+    profiles:
+      - production
+    environment:
+      - POSTGRES_DB=compliance_rag
+      - POSTGRES_USER=compliance_user
+      - POSTGRES_PASSWORD=compliance_pass
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - compliance_network
+
+# ==============================================================================
+# Persistent Named Volumes
+# ==============================================================================
+volumes:
+  chroma_data:
+    name: compliance_rag_chroma_data
+  db_data:
+    name: compliance_rag_db_data
+  pg_data:
+    name: compliance_rag_pg_data
+
+networks:
+  compliance_network:
+    driver: bridge

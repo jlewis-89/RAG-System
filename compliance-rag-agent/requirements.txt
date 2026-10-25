@@ -1,0 +1,27 @@
+# Backend Dependencies for Engineering Compliance RAG Agent
+# Python 3.11 compatible
+
+# Django & Web Framework
+Django>=5.0.0,<5.2.0
+djangorestframework>=3.15.0
+django-cors-headers>=4.3.1
+gunicorn>=22.0.0
+python-dotenv>=1.0.1
+dj-database-url>=2.1.0
+
+# Database Drivers
+psycopg2-binary>=2.9.9
+
+# RAG, Vector Database & AI Orchestration
+chromadb>=0.5.0
+langchain-core>=0.2.20
+langchain-community>=0.2.0
+sentence-transformers>=3.0.0
+pydantic>=2.7.4,<3.0.0
+
+# Utilities & Document Processing
+requests>=2.32.0
+tiktoken>=0.7.0
+pypdf>=4.2.0
+pdfplumber>=0.11.0
+PyPDF2>=3.0.1

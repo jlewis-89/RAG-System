@@ -1,0 +1,17 @@
+{
+  "name": "Engineering Compliance RAG System",
+  "short_name": "ComplianceAI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "description": "Autonomous Regulatory & Engineering Standard Compliance Auditor",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
