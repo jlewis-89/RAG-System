@@ -154,3 +154,143 @@ class IngestionReport(BaseModel):
     database_saved: bool = False
     duration_seconds: float
     chunks: List[RegulatoryChunk] = Field(default_factory=list)
+
+
+# ==============================================================================
+# Compliance Reasoning Engine Response Schemas
+# ==============================================================================
+
+class ComplianceStatus(str, Enum):
+    """
+    Statutory & Engineering Compliance Verdict Taxonomy.
+    Directly aligns with UK Electrical Safety First BPG4 observation codes
+    and statutory EAWR 1989 legal determinations.
+    """
+    COMPLIANT = "COMPLIANT"
+    POTENTIALLY_DANGEROUS = "POTENTIALLY_DANGEROUS"  # C2 equivalent: Urgent remedial action required
+    IMMEDIATE_DANGER = "IMMEDIATE_DANGER"  # C1 equivalent: Immediate risk of injury/death
+    IMPROVEMENT_RECOMMENDED = "IMPROVEMENT_RECOMMENDED"  # C3 equivalent: Improvement recommended
+    INSUFFICIENT_DATA_FURTHER_INVESTIGATION = "INSUFFICIENT_DATA_FURTHER_INVESTIGATION"  # FI equivalent: Further investigation required
+
+
+class CitedClause(BaseModel):
+    """
+    Individual regulatory citation referencing statutory instrument or standard.
+    Strictly preserves unsevered verbatim quotes to prevent fabrication.
+    """
+    model_config = ConfigDict(
+        use_enum_values=True,
+        str_strip_whitespace=True,
+        populate_by_name=True
+    )
+
+    standard: str = Field(
+        ...,
+        description="Formal regulation or engineering standard name (e.g. 'Electricity at Work Regulations 1989')"
+    )
+    clause_number: str = Field(
+        ...,
+        description="Regulation number, section, or sub-clause designation (e.g. 'Regulation 4(4)', 'Regulation 14')"
+    )
+    verbatim_quote: str = Field(
+        ...,
+        min_length=1,
+        description="Exact verbatim excerpt from retrieved statutory or standard text without modification"
+    )
+
+    @field_validator('standard', 'clause_number', mode='before')
+    @classmethod
+    def clean_citation_text(cls, v: str) -> str:
+        if not v or not str(v).strip():
+            raise ValueError("Citation standard and clause_number cannot be empty.")
+        return re.sub(r'\s+', ' ', str(v)).strip()
+
+    @field_validator('verbatim_quote', mode='before')
+    @classmethod
+    def clean_quote_text(cls, v: str) -> str:
+        if not v or not str(v).strip():
+            raise ValueError("verbatim_quote cannot be empty.")
+        return str(v).strip()
+
+
+class ComplianceResponse(BaseModel):
+    """
+    Pydantic v2 Compliance Reasoning Schema.
+    Philosophy: 'Show the engineer why the answer was reached, not just the answer. Never fabricate compliance decisions.'
+    """
+    model_config = ConfigDict(
+        use_enum_values=True,
+        validate_assignment=True,
+        str_strip_whitespace=True,
+        populate_by_name=True
+    )
+
+    compliance_status: ComplianceStatus = Field(
+        ...,
+        description="Definitive statutory/standard compliance verdict"
+    )
+    summary_verdict: str = Field(
+        ...,
+        min_length=10,
+        description="High-level natural language explanation (2-3 sentences explaining the engineering rationale)"
+    )
+    cited_clauses: List[CitedClause] = Field(
+        default_factory=list,
+        description="Explicit list of standard clauses and verbatim quotes substantiating the decision"
+    )
+    mandatory_requirements: List[str] = Field(
+        default_factory=list,
+        description="Statutory duty-holder obligations ('shall' / absolute duties from applicable legislation)"
+    )
+    inspection_checks: List[str] = Field(
+        default_factory=list,
+        description="Bulleted list of physical checks and tests the surveyor must verify on site"
+    )
+    confidence_score: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Float between 0.0 and 1.0 reflecting context relevance, coverage, and statutory certainty"
+    )
+
+    # Operational & Audit Trail Metadata
+    model_used: Optional[str] = Field(
+        default=None,
+        description="Identifier of LLM provider or model that produced the reasoning output"
+    )
+    latency_ms: Optional[float] = Field(
+        default=None,
+        description="Reasoning evaluation latency in milliseconds"
+    )
+    retrieved_chunks_count: Optional[int] = Field(
+        default=0,
+        description="Number of candidate regulatory chunks evaluated"
+    )
+
+    @field_validator('confidence_score', mode='before')
+    @classmethod
+    def round_and_clamp_score(cls, v: Any) -> float:
+        try:
+            val = float(v)
+            return max(0.0, min(1.0, round(val, 3)))
+        except (ValueError, TypeError):
+            return 0.0
+
+    @field_validator('summary_verdict', mode='before')
+    @classmethod
+    def clean_verdict(cls, v: str) -> str:
+        if not v or not str(v).strip():
+            raise ValueError("summary_verdict cannot be empty.")
+        return re.sub(r'\s+', ' ', str(v)).strip()
+
+
+class StreamingChunk(BaseModel):
+    """
+    Streaming event emitted during incremental LLM generation and JSON validation.
+    """
+    event: str = Field(..., description="Event type: 'token', 'partial', 'validated_response', or 'error'")
+    token: Optional[str] = Field(default=None, description="Incremental raw text or token delta")
+    partial_data: Optional[Dict[str, Any]] = Field(default=None, description="Partially parsed JSON state")
+    validated_response: Optional[ComplianceResponse] = Field(default=None, description="Final fully validated response")
+    error: Optional[str] = Field(default=None, description="Error message if validation or generation failed")
+

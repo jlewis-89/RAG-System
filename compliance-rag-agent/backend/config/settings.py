@@ -40,11 +40,13 @@ INSTALLED_APPS = [
     
     # Third-party packages
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
     
     # Local Apps
     'apps.rag.apps.RagConfig',
     'apps.compliance_core.apps.ComplianceCoreConfig',
+    'apps.compliance_api.apps.ComplianceApiConfig',
 ]
 
 MIDDLEWARE = [
@@ -145,6 +147,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Django REST Framework
 # ------------------------------------------------------------------------------
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    'EXCEPTION_HANDLER': 'apps.compliance_api.exceptions.compliance_exception_handler',
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',

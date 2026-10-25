@@ -1,24 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import { X, History, Clock, FileCode, RefreshCw } from 'lucide-react';
-import { ComplianceAuditLog } from '../types';
+import { X, History, Clock, FileCode, RefreshCw, ThumbsUp, Flag } from 'lucide-react';
 import { ComplianceBadge } from './ComplianceBadge';
 import api from '../services/api';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSelectAudit?: (log: ComplianceAuditLog) => void;
+  onSelectAudit?: (queryText: string, context?: string) => void;
 }
 
 export const AuditTrailPanel: React.FC<Props> = ({ isOpen, onClose, onSelectAudit }) => {
-  const [logs, setLogs] = useState<ComplianceAuditLog[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchLogs = async () => {
     try {
       setLoading(true);
       const data = await api.getAuditLogs();
-      setLogs(data);
+      setLogs(data.logs || []);
     } catch (err) {
       console.error('Failed to fetch audit logs:', err);
     } finally {
@@ -46,7 +45,7 @@ export const AuditTrailPanel: React.FC<Props> = ({ isOpen, onClose, onSelectAudi
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">Compliance Audit Trail</h2>
-              <p className="text-xs text-slate-400">Chronological verification logs & citations</p>
+              <p className="text-xs text-slate-400">Field surveyor inspection records & accuracy reviews</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -69,8 +68,8 @@ export const AuditTrailPanel: React.FC<Props> = ({ isOpen, onClose, onSelectAudi
         {/* Content list */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           {loading && logs.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-500">
-              Loading audit logs...
+            <div className="py-12 text-center text-xs text-slate-500 font-mono">
+              Loading compliance audit trails...
             </div>
           ) : logs.length === 0 ? (
             <div className="py-16 text-center text-slate-400">
@@ -81,40 +80,86 @@ export const AuditTrailPanel: React.FC<Props> = ({ isOpen, onClose, onSelectAudi
               </p>
             </div>
           ) : (
-            logs.map((log) => (
-              <div
-                key={log.id}
-                onClick={() => onSelectAudit && onSelectAudit(log)}
-                className="glass-card rounded-xl p-4 transition hover:border-emerald-500/30 hover:bg-slate-800/50 cursor-pointer"
-              >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <ComplianceBadge verdict={log.verdict} />
-                  <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-slate-500" />
-                      {log.latency_ms}ms
-                    </span>
-                    <span>•</span>
-                    <span className="text-emerald-400 font-semibold">
-                      {Math.round(log.confidence_score * 100)}% conf
+            logs.map((log) => {
+              const statusVal =
+                log.generated_response?.compliance_status ||
+                log.verdict ||
+                'COMPLIANT';
+              const confidenceVal =
+                log.generated_response?.confidence_score ??
+                log.confidence_score ??
+                0.8;
+              const latencyVal =
+                log.response_time_ms ??
+                log.latency_ms ??
+                0;
+              const summaryVal =
+                log.generated_response?.summary_verdict ||
+                log.answer_text ||
+                '';
+
+              return (
+                <div
+                  key={log.id}
+                  onClick={() => onSelectAudit && onSelectAudit(log.query_text, log.inspection_context)}
+                  className="glass-card rounded-xl p-4 transition hover:border-emerald-500/30 hover:bg-slate-800/50 cursor-pointer space-y-2.5"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <ComplianceBadge verdict={statusVal} />
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-500" />
+                        {Math.round(latencyVal)}ms
+                      </span>
+                      <span>•</span>
+                      <span className="text-emerald-400 font-semibold">
+                        {Math.round(confidenceVal * 100)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs font-semibold text-slate-200 line-clamp-2 font-mono">
+                    "{log.query_text}"
+                  </p>
+
+                  {summaryVal && (
+                    <p className="text-xs text-slate-400 line-clamp-2">
+                      {summaryVal}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-800/80 pt-2 font-mono">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-400">
+                        {log.inspection_context || 'General'}
+                      </span>
+                      {log.user_feedback && log.user_feedback !== 'pending' && (
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                            log.user_feedback === 'approved'
+                              ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-rose-950/40 text-rose-400 border border-rose-500/30'
+                          }`}
+                        >
+                          {log.user_feedback === 'approved' ? (
+                            <ThumbsUp className="w-2.5 h-2.5" />
+                          ) : (
+                            <Flag className="w-2.5 h-2.5" />
+                          )}
+                          {log.user_feedback.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <span>
+                      {new Date(log.created_at).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </span>
                   </div>
                 </div>
-
-                <p className="text-xs font-semibold text-slate-200 line-clamp-2 mb-2 font-mono">
-                  "{log.query_text}"
-                </p>
-
-                <p className="text-xs text-slate-400 line-clamp-2 mb-3">
-                  {log.answer_text}
-                </p>
-
-                <div className="flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-800/80 pt-2 font-mono">
-                  <span>Standard: {log.standard_filter || 'ALL'}</span>
-                  <span>{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -122,3 +167,5 @@ export const AuditTrailPanel: React.FC<Props> = ({ isOpen, onClose, onSelectAudi
     </div>
   );
 };
+
+export default AuditTrailPanel;

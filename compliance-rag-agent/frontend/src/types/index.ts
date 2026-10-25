@@ -1,54 +1,117 @@
-export type ComplianceVerdict = 'COMPLIANT' | 'NON_COMPLIANT' | 'PARTIALLY_COMPLIANT' | 'NEEDS_REVIEW';
+/**
+ * TypeScript Interfaces for Engineering Compliance System.
+ * Synchronized with backend Pydantic & DRF schemas.
+ */
+
+export type ComplianceStatus =
+  | 'COMPLIANT'
+  | 'POTENTIALLY_DANGEROUS' // Code C2
+  | 'IMMEDIATE_DANGER' // Code C1
+  | 'IMPROVEMENT_RECOMMENDED' // Code C3
+  | 'INSUFFICIENT_DATA_FURTHER_INVESTIGATION'; // Code FI
+
+export type InspectionContext =
+  | 'Domestic'
+  | 'Commercial'
+  | 'Industrial'
+  | 'Agricultural'
+  | 'Special Installation'
+  | 'General';
+
+export type UserFeedback = 'pending' | 'approved' | 'flagged' | 'rejected';
+
+export interface CitedClause {
+  standard: string;
+  clause_number: string;
+  verbatim_quote: string;
+}
 
 export interface CitationItem {
-  chunk_id: string;
-  standard_code: string;
-  clause: string;
-  source: string;
-  snippet: string;
-  relevance_score: number;
+  chunk_id?: string;
+  standard_code?: string;
+  clause?: string;
+  source?: string;
+  snippet?: string;
+  relevance_score?: number;
+  standard?: string;
+  clause_number?: string;
+  verbatim_quote?: string;
 }
 
-export interface RAGQueryRequest {
+
+export interface ComplianceQueryRequest {
   query: string;
-  standard_codes?: string[];
+  inspection_context?: InspectionContext;
+  standard_filter?: string;
+  duty_filter?: string;
   top_k?: number;
-  strict_mode?: boolean;
+  provider?: 'ollama' | 'groq' | 'anthropic' | 'deterministic' | 'auto';
+  model?: string;
+  stream?: boolean;
 }
 
-export interface RAGQueryResponse {
-  query: string;
-  verdict: ComplianceVerdict;
+export interface ComplianceQueryResponse {
+  query_id: number;
+  audit_id: number;
+  compliance_status: ComplianceStatus;
+  summary_verdict: string;
+  cited_clauses: CitedClause[];
+  mandatory_requirements: string[];
+  inspection_checks: string[];
   confidence_score: number;
-  summary: string;
-  detailed_findings: string;
-  citations: CitationItem[];
-  audit_id?: number;
+  inspection_context: string;
+  retrieved_chunks_count: number;
   latency_ms: number;
-  timestamp: string;
-}
-
-export interface ComplianceStandard {
-  id: number;
-  code: string;
-  name: string;
-  authority: string;
-  version?: string;
-  description?: string;
-  is_active: boolean;
-  documents_count: number;
+  model_used?: string;
   created_at: string;
 }
 
-export interface ComplianceAuditLog {
+export interface ComplianceStandardItem {
+  code: string;
+  name: string;
+  authority: string;
+  version?: string | null;
+  clause_count: number;
+  document_count: number;
+  is_active: boolean;
+  description?: string;
+}
+
+export interface ComplianceStandardsResponse {
+  total_standards: number;
+  standards: ComplianceStandardItem[];
+}
+
+export interface ComplianceAuditFeedbackPayload {
+  feedback: UserFeedback;
+  notes?: string;
+}
+
+export interface ComplianceAuditFeedbackResponse {
+  status: string;
+  message: string;
+  audit_id: number;
+  query_id: number;
+  user_feedback: UserFeedback;
+  feedback_notes: string;
+  feedback_by: string;
+  feedback_at: string | null;
+}
+
+export interface ComplianceAuditLogItem {
   id: number;
+  query_id: number;
   query_text: string;
-  verdict: ComplianceVerdict;
-  confidence_score: number;
-  answer_text: string;
-  citations: CitationItem[];
-  standard_filter?: string;
-  latency_ms: number;
+  inspection_context: string;
+  full_input: Record<string, any>;
+  retrieved_context_ids: string[];
+  generated_response: Record<string, any>;
+  response_time_ms: number;
+  user_feedback: UserFeedback;
+  feedback_notes: string;
+  feedback_by_username?: string | null;
+  feedback_at?: string | null;
+  model_used?: string;
   created_at: string;
 }
 

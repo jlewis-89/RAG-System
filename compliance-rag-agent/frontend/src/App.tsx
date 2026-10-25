@@ -2,28 +2,36 @@ import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert,
   Search,
-  BookOpen,
   Cpu,
   Zap,
-  ArrowRight
+  Filter,
 } from 'lucide-react';
 import { Header } from './components/Header';
-import { ComplianceBadge } from './components/ComplianceBadge';
-import { CitationCard } from './components/CitationCard';
+import { TrafficLightBanner } from './components/TrafficLightBanner';
+import { EvidenceAccordions } from './components/EvidenceAccordions';
+import { SurveyorActionPanel } from './components/SurveyorActionPanel';
+import { QuickTagsBar } from './components/QuickTagsBar';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { DocumentIngestModal } from './components/DocumentIngestModal';
 import { AuditTrailPanel } from './components/AuditTrailPanel';
 import api from './services/api';
-import { HealthStatus, RAGQueryResponse, ComplianceStandard } from './types';
+import {
+  HealthStatus,
+  ComplianceQueryResponse,
+  ComplianceStandardItem,
+  InspectionContext,
+} from './types';
 
 export const App: React.FC = () => {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [loadingHealth, setLoadingHealth] = useState<boolean>(false);
-  const [standards, setStandards] = useState<ComplianceStandard[]>([]);
+  const [standards, setStandards] = useState<ComplianceStandardItem[]>([]);
   const [selectedStandard, setSelectedStandard] = useState<string>('ALL');
+  const [inspectionContext, setInspectionContext] = useState<InspectionContext>('Domestic');
 
   const [query, setQuery] = useState('');
   const [loadingQuery, setLoadingQuery] = useState(false);
-  const [result, setResult] = useState<RAGQueryResponse | null>(null);
+  const [result, setResult] = useState<ComplianceQueryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [isIngestOpen, setIsIngestOpen] = useState(false);
@@ -34,11 +42,11 @@ export const App: React.FC = () => {
   const fetchHealthAndStandards = async () => {
     try {
       setLoadingHealth(true);
-      const healthData = await api.getHealth();
-      setHealth(healthData);
+      const healthData = await api.getHealth().catch(() => null);
+      if (healthData) setHealth(healthData);
 
-      const stds = await api.getStandards();
-      setStandards(stds);
+      const stdsData = await api.getStandards();
+      setStandards(stdsData.standards || []);
     } catch (err: any) {
       console.warn('Backend not responding yet:', err.message);
     } finally {
@@ -62,8 +70,9 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleExecuteQuery = async (customQuery?: string) => {
+  const handleExecuteQuery = async (customQuery?: string, customContext?: InspectionContext) => {
     const q = customQuery || query;
+    const ctx = customContext || inspectionContext;
     if (!q || q.trim().length < 3) return;
 
     try {
@@ -71,50 +80,34 @@ export const App: React.FC = () => {
       setError(null);
       setResult(null);
 
-      const standardCodes = selectedStandard === 'ALL' ? undefined : [selectedStandard];
       const res = await api.queryCompliance({
         query: q.trim(),
-        standard_codes: standardCodes,
+        inspection_context: ctx,
+        standard_filter: selectedStandard === 'ALL' ? undefined : selectedStandard,
         top_k: 4,
-        strict_mode: true,
+        provider: 'auto',
       });
       setResult(res);
-      // Refresh health to update chunk counts if needed
       api.getHealth().then(setHealth).catch(() => {});
     } catch (err: any) {
       console.error('Compliance Query Error:', err);
-      setError(err.response?.data?.detail || err.message || 'Failed to complete compliance audit.');
+      const errDetail =
+        err.response?.data?.message ||
+        err.response?.data?.detail ||
+        err.message ||
+        'Failed to complete compliance audit.';
+      setError(errDetail);
     } finally {
       setLoadingQuery(false);
     }
   };
 
-  const sampleQueries = [
-    {
-      title: "EAWR Reg 4(2) System Maintenance",
-      prompt: "What does Regulation 4(2) require regarding the maintenance of electrical systems?",
-      standard: "EAWR-1989",
-    },
-    {
-      title: "BPG4 Consumer Unit Classification",
-      prompt: "What classification code is assigned to a missing blanking piece on a consumer unit?",
-      standard: "ESF-BPG4",
-    },
-    {
-      title: "EAWR Reg 16 Competence & Supervision",
-      prompt: "What are the requirements for persons undertaking electrical work under Regulation 16?",
-      standard: "EAWR-1989",
-    },
-    {
-      title: "PUWER Reg 4 Suitability of Equipment",
-      prompt: "What duty is imposed on employers concerning the suitability of work equipment under Regulation 4?",
-      standard: "PUWER-1998",
-    }
-  ];
-
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-      {/* Top Navbar */}
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500/30 selection:text-emerald-300">
+      {/* Offline Mode Alert & PWA Home Screen Banner */}
+      <OfflineIndicator />
+
+      {/* Top Mobile-First Navbar */}
       <Header
         health={health}
         loadingHealth={loadingHealth}
@@ -126,243 +119,173 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6">
         
-        {/* Banner / Introduction */}
-        <section className="relative overflow-hidden rounded-2xl glass-panel p-6 sm:p-8 border border-slate-800">
+        {/* Mobile Header Banner */}
+        <section className="relative overflow-hidden rounded-2xl glass-panel p-5 sm:p-7 border border-slate-800">
           <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />
 
-          <div className="relative z-10 max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 mb-4">
-              <Zap className="w-3.5 h-3.5" />
-              ChromaDB Vector Retrieval • Pydantic v2 • LangChain Orchestration
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 mb-3">
+              <Zap className="w-3.5 h-3.5 text-emerald-400" />
+              <span>UK Electrical Standards Reasoner • Mobile Field Tool</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Autonomous Engineering Compliance Verification
-            </h2>
-            <p className="mt-2 text-sm sm:text-base text-slate-300 leading-relaxed">
-              Query statutory UK electrical and safety regulations (EAWR 1989, HSE HSR25, ESF BPG4, PUWER 1998, HASAWA 1974).
-              Retrieve exact clause citations with definitive compliance verdicts, duty holder classifications, and audit trails.
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-white leading-tight">
+              Statutory Engineering Compliance Auditor
+            </h1>
+            <p className="mt-2 text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
+              Show the engineer why the answer was reached, not just the answer.
+              Audits technical observations against EAWR 1989, HSE HSR25, and ESF BPG4 with zero hallucination.
             </p>
           </div>
         </section>
 
-        {/* Query Input Box */}
-        <section className="glass-panel rounded-2xl p-4 sm:p-6 border border-slate-800 space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 font-mono">
-              <Search className="w-4 h-4 text-emerald-400" />
-              Compliance Specification Audit Query
-            </label>
+        {/* Query Input Section */}
+        <section className="glass-panel rounded-2xl p-4 sm:p-6 border border-slate-800 space-y-4 shadow-xl">
+          {/* Context Selector & Quick Tags */}
+          <QuickTagsBar
+            selectedContext={inspectionContext}
+            onSelectContext={(ctx) => setInspectionContext(ctx)}
+            onSelectTag={(tagQuery, defaultContext) => {
+              setQuery(tagQuery);
+              if (defaultContext) setInspectionContext(defaultContext);
+              handleExecuteQuery(tagQuery, defaultContext);
+            }}
+          />
 
-            {/* Standard Selector Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-medium">Standard Filter:</span>
-              <select
-                value={selectedStandard}
-                onChange={(e) => setSelectedStandard(e.target.value)}
-                className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
-              >
-                <option value="ALL">ALL Indexed Standards</option>
-                {standards && standards.length > 0 ? (
-                  standards.map((s) => (
-                    <option key={s.id} value={s.code}>
-                      {s.name} ({s.code})
-                    </option>
-                  ))
-                ) : (
-                  <>
-                    <option value="EAWR-1989">EAWR 1989 (Electricity at Work)</option>
-                    <option value="HSE-HSR25">HSE HSR25 Guidance</option>
-                    <option value="ESF-BPG4">Electrical Safety First BPG4</option>
-                    <option value="PUWER-1998">PUWER 1998</option>
-                    <option value="HASAWA-1974">HASAWA 1974</option>
-                  </>
-                )}
-              </select>
-            </div>
-          </div>
+          {/* Search Box & Controls */}
+          <div className="pt-2 border-t border-slate-800/80 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5 font-mono">
+                <Search className="w-4 h-4 text-emerald-400" />
+                <span>Surveyor Query / Observation Input:</span>
+              </label>
 
-          <div className="relative">
-            <textarea
-              rows={3}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Enter engineering parameter, design clause, or safety requirement to audit (e.g., 'Verify relief valve testing intervals per ASME Section VIII')..."
-              className="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans resize-none transition"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                  handleExecuteQuery();
-                }
-              }}
-            />
-            
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80">
-              <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
-                Press Ctrl+Enter or Cmd+Enter to execute audit
-              </span>
-              <button
-                onClick={() => handleExecuteQuery()}
-                disabled={loadingQuery || !query.trim()}
-                className="ml-auto flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-emerald-500/20 disabled:opacity-50"
-              >
-                <Cpu className={`w-4 h-4 ${loadingQuery ? 'animate-spin' : ''}`} />
-                <span>{loadingQuery ? 'Auditing Standard Clauses...' : 'Verify Compliance'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Preset Sample Prompts */}
-          <div className="pt-2">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2 font-mono">
-              Quick Audit Scenarios
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-              {sampleQueries.map((item, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setQuery(item.prompt);
-                    setSelectedStandard(item.standard);
-                    handleExecuteQuery(item.prompt);
-                  }}
-                  className="text-left p-2.5 rounded-xl bg-slate-900/70 hover:bg-slate-800/90 border border-slate-800 hover:border-emerald-500/40 transition group"
+              {/* Standard Filter Dropdown */}
+              <div className="flex items-center gap-2">
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-xs text-slate-400">Standard:</span>
+                <select
+                  value={selectedStandard}
+                  onChange={(e) => setSelectedStandard(e.target.value)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
                 >
-                  <div className="flex items-center justify-between text-[11px] font-mono text-emerald-400 mb-1 font-semibold">
-                    <span>{item.standard}</span>
-                    <ArrowRight className="w-3 h-3 text-slate-500 group-hover:text-emerald-400 transition transform group-hover:translate-x-0.5" />
-                  </div>
-                  <p className="text-xs text-slate-300 font-medium line-clamp-2">
-                    {item.title}
-                  </p>
+                  <option value="ALL">All Standards</option>
+                  {standards && standards.length > 0 ? (
+                    standards.map((s) => (
+                      <option key={s.code} value={s.code}>
+                        {s.code} ({s.clause_count} cls)
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="EAWR-1989">EAWR 1989</option>
+                      <option value="ESF-BPG4">ESF BPG4</option>
+                      <option value="HSE-HSR25">HSR25 Guidance</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            <div className="relative">
+              <textarea
+                rows={3}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Enter engineering defect, inspection condition, or regulation query (e.g., 'A circuit protective device is missing from a consumer unit with accessible live parts')..."
+                className="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans resize-none transition"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    handleExecuteQuery();
+                  }
+                }}
+              />
+
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/80">
+                <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
+                  Tip: Press Ctrl+Enter to execute reasoning
+                </span>
+
+                <button
+                  onClick={() => handleExecuteQuery()}
+                  disabled={loadingQuery || !query.trim()}
+                  className="ml-auto w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-emerald-500/20 disabled:opacity-50 active:scale-95"
+                >
+                  <Cpu className={`w-4 h-4 ${loadingQuery ? 'animate-spin' : ''}`} />
+                  <span>{loadingQuery ? 'Reasoning Against Standards...' : 'Verify Statutory Compliance'}</span>
                 </button>
-              ))}
+              </div>
             </div>
           </div>
         </section>
 
         {/* Error Alert */}
         {error && (
-          <div className="glass-card rounded-xl p-4 border border-rose-500/40 bg-rose-950/20 text-rose-300 text-xs flex items-center gap-3">
+          <div className="rounded-xl p-4 border border-rose-500/40 bg-rose-950/20 text-rose-300 text-xs flex items-center gap-3 animate-fadeIn">
             <ShieldAlert className="w-5 h-5 text-rose-400 flex-shrink-0" />
             <div>
-              <p className="font-semibold">Audit Execution Issue</p>
+              <p className="font-semibold">Compliance Audit Error</p>
               <p className="text-slate-400 mt-0.5">{error}</p>
             </div>
           </div>
         )}
 
-        {/* Audit Results View */}
+        {/* Results View */}
         {result && (
           <section className="space-y-6 animate-fadeIn">
-            {/* Verdict Header Card */}
-            <div className="glass-panel rounded-2xl p-6 border border-slate-800">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3">
-                    <ComplianceBadge verdict={result.verdict} className="text-sm px-4 py-1.5" />
-                    <span className="text-xs font-mono text-slate-400">
-                      Audit #{result.audit_id || 'LOCAL'}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-white mt-1">
-                    Compliance Audit Findings
-                  </h3>
-                </div>
+            {/* 1. Traffic-Light Verdict Banner */}
+            <TrafficLightBanner
+              status={result.compliance_status}
+              summaryVerdict={result.summary_verdict}
+              confidenceScore={result.confidence_score}
+              inspectionContext={result.inspection_context}
+              latencyMs={result.latency_ms}
+              auditId={result.audit_id}
+              modelUsed={result.model_used}
+            />
 
-                <div className="flex items-center gap-4 text-xs font-mono">
-                  <div className="text-right">
-                    <span className="text-slate-400 block text-[10px]">CONFIDENCE</span>
-                    <span className="text-emerald-400 font-bold text-sm">
-                      {Math.round(result.confidence_score * 100)}%
-                    </span>
-                  </div>
-                  <div className="h-8 w-px bg-slate-800" />
-                  <div className="text-right">
-                    <span className="text-slate-400 block text-[10px]">LATENCY</span>
-                    <span className="text-slate-200 font-semibold text-sm">
-                      {result.latency_ms} ms
-                    </span>
-                  </div>
-                </div>
-              </div>
+            {/* 2. Surveyor Action & EICR Copy Panel */}
+            <SurveyorActionPanel
+              response={result}
+              onFeedbackSubmitted={() => {
+                // Refresh if needed
+              }}
+            />
 
-              {/* Summary and Findings */}
-              <div className="mt-4 space-y-3">
-                <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
-                  <p className="text-xs font-semibold text-emerald-400 font-mono uppercase mb-1">
-                    Executive Determination
-                  </p>
-                  <p className="text-sm text-slate-200 font-medium">
-                    {result.summary}
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-slate-900/50 border border-slate-800/60">
-                  <p className="text-xs font-semibold text-slate-400 font-mono uppercase mb-1">
-                    Regulatory Analysis & Parameters
-                  </p>
-                  <p className="text-xs text-slate-300 leading-relaxed font-sans">
-                    {result.detailed_findings}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Citations Grid */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-emerald-400" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                    Retrieved Standard Clauses ({result.citations.length})
-                  </h4>
-                </div>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  Source: ChromaDB Persistent Storage
-                </span>
-              </div>
-
-              {result.citations.length === 0 ? (
-                <div className="glass-card rounded-xl p-6 text-center text-xs text-slate-500">
-                  No explicit clauses found with sufficient similarity in ChromaDB.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {result.citations.map((citation, index) => (
-                    <CitationCard key={citation.chunk_id} citation={citation} index={index} />
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* 3. Evidence & Audit Accordions */}
+            <EvidenceAccordions
+              mandatoryRequirements={result.mandatory_requirements}
+              inspectionChecks={result.inspection_checks}
+              citedClauses={result.cited_clauses}
+            />
           </section>
         )}
 
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 py-4 glass-panel text-center text-xs text-slate-400 font-mono">
-        <p>Engineering Compliance RAG System • Django 5.x REST Framework • ChromaDB Volume</p>
+      <footer className="border-t border-slate-800/80 py-4 glass-panel text-center text-xs text-slate-400 font-mono mt-auto">
+        <p>UK Statutory Electrical Standards Compliance Engine • EAWR 1989 • ESF BPG4 • BS 7671</p>
       </footer>
 
       {/* Ingest Document Modal */}
       <DocumentIngestModal
         isOpen={isIngestOpen}
         onClose={() => setIsIngestOpen(false)}
-        onSuccess={() => {
-          fetchHealthAndStandards();
-        }}
+        onSuccess={() => fetchHealthAndStandards()}
       />
 
       {/* Audit Trail Drawer */}
       <AuditTrailPanel
         isOpen={isAuditOpen}
         onClose={() => setIsAuditOpen(false)}
-        onSelectAudit={(log) => {
-          setQuery(log.query_text);
+        onSelectAudit={(queryText, context) => {
+          setQuery(queryText);
+          if (context) setInspectionContext(context as InspectionContext);
           setIsAuditOpen(false);
-          handleExecuteQuery(log.query_text);
+          handleExecuteQuery(queryText, context as InspectionContext);
         }}
       />
     </div>

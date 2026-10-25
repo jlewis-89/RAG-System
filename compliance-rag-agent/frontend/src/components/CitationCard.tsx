@@ -8,7 +8,7 @@ interface Props {
 }
 
 export const CitationCard: React.FC<Props> = ({ citation, index }) => {
-  const scorePercent = Math.round(citation.relevance_score * 100);
+  const scorePercent = Math.round((citation.relevance_score ?? 0.8) * 100);
 
   return (
     <div className="glass-card rounded-xl p-4 transition-all duration-200 hover:border-emerald-500/40 hover:bg-slate-800/60">
