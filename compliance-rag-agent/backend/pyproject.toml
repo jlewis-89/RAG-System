@@ -1,0 +1,15 @@
+[tool.pyrefly]
+search-path = [
+    ".",
+    "apps"
+]
+python-interpreter-path = ".venv/Scripts/python.exe"
+disable-search-path-heuristics = true
+
+[tool.pyrefly.errors]
+bad-argument-type = "warn"
+bad-override = "warn"
+bad-override-mutable-attribute = "warn"
+missing-stub = "ignore"
+deprecated = "ignore"
+redundant-condition = "ignore"

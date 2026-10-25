@@ -3,15 +3,16 @@ Document Ingestion Orchestration Service for Regulatory Documents.
 Coordinates text extraction, hierarchical parsing, validation, ChromaDB indexing, and DB persistence.
 """
 
+import re
 import time
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 
-from apps.compliance_core.schemas import RegulatoryChunk, IngestionReport
-from apps.compliance_core.ingestion.extractors import extract_text_from_file
-from apps.compliance_core.ingestion.parsers import get_parser_registry
-from apps.compliance_core.services.vector_store import get_vector_store
+from ..schemas import RegulatoryChunk, IngestionReport
+from .extractors import extract_text_from_file
+from .parsers import get_parser_registry
+from ..services.vector_store import get_vector_store
 from apps.rag.services.chroma import get_chroma_service
 from apps.rag.models import ComplianceStandard, ComplianceDocument
 

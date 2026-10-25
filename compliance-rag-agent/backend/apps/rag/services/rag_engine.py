@@ -103,28 +103,28 @@ class ComplianceRAGEngine:
             metadatas = results.get("metadatas", [[]])[0] if results.get("metadatas") else []
             distances = results.get("distances", [[]])[0] if results.get("distances") else []
 
-        for idx, doc_text in enumerate(documents):
-            meta = metadatas[idx] if idx < len(metadatas) else {}
-            dist = distances[idx] if idx < len(distances) else 0.5
-            
-            # Chroma cosine distance to normalized similarity score (0.0 - 1.0)
-            similarity = max(0.0, min(1.0, round(1.0 - (dist / 2.0), 3)))
+            for idx, doc_text in enumerate(documents):
+                meta = metadatas[idx] if idx < len(metadatas) else {}
+                dist = distances[idx] if idx < len(distances) else 0.5
+                
+                # Chroma cosine distance to normalized similarity score (0.0 - 1.0)
+                similarity = max(0.0, min(1.0, round(1.0 - (dist / 2.0), 3)))
 
-            clause = meta.get("clause", "General Provision")
-            std_code = meta.get("standard_code", "UNKNOWN")
-            source_title = meta.get("document_title", meta.get("source", "Standard Reference"))
-            chunk_id = meta.get("chunk_id", f"chk_{idx}")
+                clause = meta.get("clause", "General Provision")
+                std_code = meta.get("standard_code", "UNKNOWN")
+                source_title = meta.get("document_title", meta.get("source", "Standard Reference"))
+                chunk_id = meta.get("chunk_id", f"chk_{idx}")
 
-            citation = CitationItem(
-                chunk_id=chunk_id,
-                standard_code=std_code,
-                clause=clause,
-                source=source_title,
-                snippet=doc_text[:300] + ("..." if len(doc_text) > 300 else ""),
-                relevance_score=similarity
-            )
-            citations.append(citation)
-            context_blocks.append(f"[{std_code} | {clause}]: {doc_text}")
+                citation = CitationItem(
+                    chunk_id=chunk_id,
+                    standard_code=std_code,
+                    clause=clause,
+                    source=source_title,
+                    snippet=doc_text[:300] + ("..." if len(doc_text) > 300 else ""),
+                    relevance_score=similarity
+                )
+                citations.append(citation)
+                context_blocks.append(f"[{std_code} | {clause}]: {doc_text}")
 
         # 3. Formulate Prompt with LangChain Core
         context_str = "\n\n".join(context_blocks) if context_blocks else "No relevant standards found in vector store."

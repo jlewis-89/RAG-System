@@ -10,10 +10,11 @@ Features:
 
 import os
 import re
+import uuid
 import logging
 import threading
 import hashlib
-from typing import List, Dict, Any, Optional, Union, Tuple
+from typing import List, Dict, Any, Optional, Union, Tuple, Mapping, cast
 from pathlib import Path
 
 from django.conf import settings
@@ -23,7 +24,7 @@ import chromadb
 from chromadb.config import Settings as ChromaSettings
 from chromadb.api.types import Documents, Embeddings
 
-from apps.compliance_core.schemas import RegulatoryChunk, DutyHolderType
+from ..schemas import RegulatoryChunk, DutyHolderType
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +77,9 @@ class LocalSentenceTransformerEmbeddings(chromadb.EmbeddingFunction[Documents]):
     def get_config(self) -> Dict[str, Any]:
         return {"model_name": self.model_name, "dimension": self.dimension}
 
-    @classmethod
-    def build_from_config(cls, config: Dict[str, Any]) -> "LocalSentenceTransformerEmbeddings":
-        return cls(model_name=config.get("model_name", "sentence-transformers/all-MiniLM-L6-v2"))
+    @staticmethod
+    def build_from_config(config: Dict[str, Any]) -> "LocalSentenceTransformerEmbeddings":
+        return LocalSentenceTransformerEmbeddings(model_name=config.get("model_name", "sentence-transformers/all-MiniLM-L6-v2"))
 
     def _get_model(self):
         if self._ef is not None:
@@ -123,7 +124,7 @@ class LocalSentenceTransformerEmbeddings(chromadb.EmbeddingFunction[Documents]):
             )
             return None
 
-    def __call__(self, input: Documents) -> Embeddings:
+    def __call__(self, input: Documents) -> Any:
         """
         Embeds a list of documents or queries into vectors.
         Conforms to Chroma's EmbeddingFunction protocol.
@@ -141,11 +142,11 @@ class LocalSentenceTransformerEmbeddings(chromadb.EmbeddingFunction[Documents]):
             # 2. Native SentenceTransformer
             if hasattr(model, "encode"):
                 embeddings = model.encode(input, normalize_embeddings=True, show_progress_bar=False)
-                return [e.tolist() if hasattr(e, "tolist") else list(e) for e in embeddings]
+                return [e.tolist() if hasattr(e, "tolist") else list(e) for e in embeddings]  # type: ignore
 
             # 3. LangChain HuggingFaceEmbeddings
             if hasattr(model, "embed_documents"):
-                return model.embed_documents(input)
+                return getattr(model, "embed_documents")(input)
 
         # 4. Deterministic Local Hash-Embedding Fallback (ensures 384-dim vector space offline)
         return [self._hash_text_to_384_vector(doc) for doc in input]
@@ -236,7 +237,7 @@ class RegulationVectorStore:
             # Initialize primary collection with cosine similarity distance
             self.collection = self.client.get_or_create_collection(
                 name=self.collection_name,
-                embedding_function=self.embedding_function,
+                embedding_function=cast(Any, self.embedding_function),
                 metadata={"hnsw:space": "cosine"}
             )
             logger.info(
@@ -264,7 +265,7 @@ class RegulationVectorStore:
 
         seen_ids = set()
         for c in chunks:
-            chunk_id = c.chunk_id
+            chunk_id = c.chunk_id or f"chk_{uuid.uuid4().hex[:12]}"
             if chunk_id in seen_ids:
                 suffix = 2
                 while f"{chunk_id}_v{suffix}" in seen_ids:
@@ -283,7 +284,7 @@ class RegulationVectorStore:
                 "duty_holder": c.duty_holder,
                 "parent_title": c.parent_title,
                 "document_type": c.document_type or "Statutory Regulation",
-                "defense_available": bool(c.defense_available),
+                "defense_available": c.defense_available,
                 "classification_code": c.classification_code or "",
                 "guidance_notes": c.guidance_notes or "",
             })
@@ -291,7 +292,7 @@ class RegulationVectorStore:
         self.collection.upsert(
             ids=ids,
             documents=documents,
-            metadatas=metadatas
+            metadatas=cast(Any, metadatas)
         )
         logger.info(f"Upserted {len(ids)} chunks into '{self.collection_name}'. New total: {self.collection.count()}")
         return len(ids)
@@ -305,7 +306,7 @@ class RegulationVectorStore:
         self.client.delete_collection(self.collection_name)
         self.collection = self.client.get_or_create_collection(
             name=self.collection_name,
-            embedding_function=self.embedding_function,
+            embedding_function=cast(Any, self.embedding_function),
             metadata={"hnsw:space": "cosine"}
         )
         logger.info(f"Cleared ChromaDB collection '{self.collection_name}'.")
@@ -449,9 +450,12 @@ class RegulationVectorStore:
             logger.error(f"ChromaDB vector query failed: {e}", exc_info=True)
             return []
 
-        documents = results.get("documents", [[]])[0] if results.get("documents") else []
-        metadatas = results.get("metadatas", [[]])[0] if results.get("metadatas") else []
-        distances = results.get("distances", [[]])[0] if results.get("distances") else []
+        docs_list = results.get("documents") or [[]]
+        documents = docs_list[0] if docs_list else []
+        metas_list = results.get("metadatas") or [[]]
+        metadatas = metas_list[0] if metas_list else []
+        dists_list = results.get("distances") or [[]]
+        distances = dists_list[0] if dists_list else []
 
         candidate_results: List[RegulationSearchResult] = []
         seen_chunks = set()
@@ -482,20 +486,20 @@ class RegulationVectorStore:
             )
 
             candidate_results.append(RegulationSearchResult(
-                chunk_id=chunk_id,
-                standard=meta.get("standard", "Engineering Standard"),
-                regulation_number=meta.get("regulation_number", "General Provision"),
-                sub_clause=meta.get("sub_clause", meta.get("clause", "N/A")),
-                duty_holder=meta.get("duty_holder", DutyHolderType.NOT_APPLICABLE.value),
-                parent_title=meta.get("parent_title", "Regulatory Provision"),
+                chunk_id=str(chunk_id),
+                standard=str(meta.get("standard") or "Engineering Standard"),
+                regulation_number=str(meta.get("regulation_number") or "General Provision"),
+                sub_clause=str(meta.get("sub_clause") or meta.get("clause") or "N/A"),
+                duty_holder=str(meta.get("duty_holder") or DutyHolderType.NOT_APPLICABLE.value),
+                parent_title=str(meta.get("parent_title") or "Regulatory Provision"),
                 raw_text=doc_text,
                 semantic_score=semantic_score,
                 exact_match_score=exact_match_score,
                 combined_score=combined_score,
                 is_exact_match=is_exact,
                 defense_available=bool(meta.get("defense_available", False)),
-                classification_code=meta.get("classification_code") or None,
-                metadata=meta
+                classification_code=str(meta.get("classification_code")) if meta.get("classification_code") else None,
+                metadata=dict(meta)
             ))
 
         # If exact clause identifiers were in query, ensure chunks matching those clauses
@@ -516,7 +520,7 @@ class RegulationVectorStore:
     def _calculate_exact_match_score(
         self,
         query_identifiers: List[str],
-        metadata: Dict[str, Any],
+        metadata: Mapping[str, Any],
         doc_text: str
     ) -> Tuple[float, bool]:
         """
@@ -594,24 +598,26 @@ class RegulationVectorStore:
                     for idx, c_id in enumerate(exact_data["ids"]):
                         if c_id not in seen_chunks:
                             seen_chunks.add(c_id)
-                            meta = exact_data["metadatas"][idx] if exact_data.get("metadatas") else {}
-                            doc = exact_data["documents"][idx] if exact_data.get("documents") else ""
+                            exact_metas = exact_data.get("metadatas") or []
+                            meta = exact_metas[idx] if idx < len(exact_metas) else {}
+                            exact_docs = exact_data.get("documents") or []
+                            doc = exact_docs[idx] if idx < len(exact_docs) else ""
 
                             candidate_results.append(RegulationSearchResult(
-                                chunk_id=c_id,
-                                standard=meta.get("standard", "Engineering Standard"),
-                                regulation_number=meta.get("regulation_number", "General Provision"),
-                                sub_clause=meta.get("sub_clause", target_sub),
-                                duty_holder=meta.get("duty_holder", DutyHolderType.ABSOLUTE.value),
-                                parent_title=meta.get("parent_title", "Regulatory Provision"),
+                                chunk_id=str(c_id),
+                                standard=str(meta.get("standard") or "Engineering Standard"),
+                                regulation_number=str(meta.get("regulation_number") or "General Provision"),
+                                sub_clause=str(meta.get("sub_clause") or target_sub),
+                                duty_holder=str(meta.get("duty_holder") or DutyHolderType.ABSOLUTE.value),
+                                parent_title=str(meta.get("parent_title") or "Regulatory Provision"),
                                 raw_text=doc,
                                 semantic_score=0.85,
                                 exact_match_score=1.0,
                                 combined_score=2.25,  # Priority rank boost
                                 is_exact_match=True,
                                 defense_available=bool(meta.get("defense_available", False)),
-                                classification_code=meta.get("classification_code") or None,
-                                metadata=meta
+                                classification_code=str(meta.get("classification_code")) if meta.get("classification_code") else None,
+                                metadata=dict(meta)
                             ))
             except Exception as e:
                 logger.debug(f"Direct clause search query for '{q_id}' yielded no results or was skipped: {e}")

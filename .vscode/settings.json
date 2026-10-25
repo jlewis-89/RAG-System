@@ -1,0 +1,16 @@
+{
+  "python.defaultInterpreterPath": "compliance-rag-agent/backend/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": [
+    "compliance-rag-agent/backend",
+    "compliance-rag-agent/backend/apps",
+    "${workspaceFolder}/compliance-rag-agent/backend",
+    "${workspaceFolder}/compliance-rag-agent/backend/apps"
+  ],
+  "python.autoComplete.extraPaths": [
+    "compliance-rag-agent/backend",
+    "compliance-rag-agent/backend/apps",
+    "${workspaceFolder}/compliance-rag-agent/backend",
+    "${workspaceFolder}/compliance-rag-agent/backend/apps"
+  ],
+  "css.lint.unknownAtRules": "ignore"
+}

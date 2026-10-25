@@ -1,0 +1,7 @@
+[tool.pyrefly]
+search-path = [
+    "backend",
+    "backend/apps"
+]
+python-interpreter-path = "backend/.venv/Scripts/python.exe"
+disable-search-path-heuristics = true

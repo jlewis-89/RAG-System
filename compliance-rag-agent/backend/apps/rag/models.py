@@ -87,4 +87,4 @@ class ComplianceAuditLog(models.Model):
         verbose_name_plural = 'Compliance Audit Logs'
 
     def __str__(self):
-        return f"[{self.verdict}] {self.query_text[:50]}... ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+        return f"[{self.verdict}] {str(self.query_text)[:50]}... ({str(self.created_at)})"

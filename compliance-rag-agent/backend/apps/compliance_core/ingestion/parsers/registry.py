@@ -5,10 +5,10 @@ Parser Registry and Auto-Detector for Regulatory & Engineering Standards.
 import re
 import logging
 from typing import List, Optional, Dict, Any
-from apps.compliance_core.schemas import RegulatoryChunk, DutyHolderType, DocumentType
-from apps.compliance_core.ingestion.parsers.base import AbstractBaseRegulationParser
-from apps.compliance_core.ingestion.parsers.eawr import EAWRParser
-from apps.compliance_core.ingestion.parsers.esf_bpg4 import ESFBPG4Parser
+from ...schemas import RegulatoryChunk, DutyHolderType, DocumentType
+from .base import AbstractBaseRegulationParser
+from .eawr import EAWRParser
+from .esf_bpg4 import ESFBPG4Parser
 
 logger = logging.getLogger(__name__)
 

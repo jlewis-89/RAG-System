@@ -6,7 +6,7 @@ Processes text manuals, extracts sections/clauses, chunks, and persists into Chr
 import re
 import uuid
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from apps.rag.models import ComplianceStandard, ComplianceDocument
 from apps.rag.services.chroma import get_chroma_service
 
@@ -88,7 +88,7 @@ class ComplianceIngestionService:
         standard_code: str,
         content: str,
         source_identifier: str = "manual_entry",
-        custom_metadata: Dict[str, Any] = None
+        custom_metadata: Optional[Dict[str, Any]] = None
     ) -> ComplianceDocument:
         """
         Ingests a full document, persists chunks in ChromaDB, and records audit state.

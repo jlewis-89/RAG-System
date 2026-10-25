@@ -161,6 +161,8 @@ class TestRegulationVectorStore(unittest.TestCase):
             "duty_holder": "Reasonably Practicable",
             "regulation_number": "Regulation 4"
         })
+        self.assertIsNotNone(filter_multi)
+        assert filter_multi is not None
         self.assertIn("$and", filter_multi)
         self.assertEqual(len(filter_multi["$and"]), 3)
 

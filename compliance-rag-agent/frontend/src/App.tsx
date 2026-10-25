@@ -2,13 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert,
   Search,
-  Sparkles,
   BookOpen,
-  Sliders,
-  CheckCircle2,
-  FileCheck2,
   Cpu,
-  Layers,
   Zap,
   ArrowRight
 } from 'lucide-react';
@@ -96,24 +91,24 @@ export const App: React.FC = () => {
 
   const sampleQueries = [
     {
-      title: "ASME Relief Valve Frequency",
-      prompt: "What is the maximum inspection and testing interval for pressure relief valves under ASME Section VIII?",
-      standard: "ASME-VIII",
+      title: "EAWR Reg 4(2) System Maintenance",
+      prompt: "What does Regulation 4(2) require regarding the maintenance of electrical systems?",
+      standard: "EAWR-1989",
     },
     {
-      title: "ISO 9001 Document Control",
-      prompt: "What are the mandatory requirements for control and retention of documented information under ISO 9001:2015 Clause 7.5?",
-      standard: "ISO-9001",
+      title: "BPG4 Consumer Unit Classification",
+      prompt: "What classification code is assigned to a missing blanking piece on a consumer unit?",
+      standard: "ESF-BPG4",
     },
     {
-      title: "IEC 61508 SIL 3 Architecture",
-      prompt: "What are the Hardware Fault Tolerance (HFT) and Safe Failure Fraction requirements for SIL 3 systems per IEC 61508?",
-      standard: "IEC-61508",
+      title: "EAWR Reg 16 Competence & Supervision",
+      prompt: "What are the requirements for persons undertaking electrical work under Regulation 16?",
+      standard: "EAWR-1989",
     },
     {
-      title: "Minimum Design Metal Temp",
-      prompt: "What criteria dictate Minimum Design Metal Temperature (MDMT) marking per ASME Section VIII UG-20?",
-      standard: "ASME-VIII",
+      title: "PUWER Reg 4 Suitability of Equipment",
+      prompt: "What duty is imposed on employers concerning the suitability of work equipment under Regulation 4?",
+      standard: "PUWER-1998",
     }
   ];
 
@@ -147,8 +142,8 @@ export const App: React.FC = () => {
               Autonomous Engineering Compliance Verification
             </h2>
             <p className="mt-2 text-sm sm:text-base text-slate-300 leading-relaxed">
-              Query regulatory standard clauses (ISO 9001, ASME BPVC Section VIII, IEC 61508).
-              Retrieve exact clause citations with definitive compliance verdicts and audit trails.
+              Query statutory UK electrical and safety regulations (EAWR 1989, HSE HSR25, ESF BPG4, PUWER 1998, HASAWA 1974).
+              Retrieve exact clause citations with definitive compliance verdicts, duty holder classifications, and audit trails.
             </p>
           </div>
         </section>
@@ -170,9 +165,21 @@ export const App: React.FC = () => {
                 className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
               >
                 <option value="ALL">ALL Indexed Standards</option>
-                <option value="ISO-9001">ISO 9001:2015</option>
-                <option value="ASME-VIII">ASME Section VIII</option>
-                <option value="IEC-61508">IEC 61508</option>
+                {standards && standards.length > 0 ? (
+                  standards.map((s) => (
+                    <option key={s.id} value={s.code}>
+                      {s.name} ({s.code})
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="EAWR-1989">EAWR 1989 (Electricity at Work)</option>
+                    <option value="HSE-HSR25">HSE HSR25 Guidance</option>
+                    <option value="ESF-BPG4">Electrical Safety First BPG4</option>
+                    <option value="PUWER-1998">PUWER 1998</option>
+                    <option value="HASAWA-1974">HASAWA 1974</option>
+                  </>
+                )}
               </select>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, History, Clock, FileCode, CheckCircle, RefreshCw } from 'lucide-react';
+import { X, History, Clock, FileCode, RefreshCw } from 'lucide-react';
 import { ComplianceAuditLog } from '../types';
 import { ComplianceBadge } from './ComplianceBadge';
 import api from '../services/api';

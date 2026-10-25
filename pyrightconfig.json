@@ -1,0 +1,23 @@
+{
+  "include": [
+    "compliance-rag-agent/backend"
+  ],
+  "venvPath": "compliance-rag-agent/backend",
+  "venv": ".venv",
+  "extraPaths": [
+    "compliance-rag-agent/backend",
+    "compliance-rag-agent/backend/apps"
+  ],
+  "reportAttributeAccessIssue": false,
+  "reportArgumentType": false,
+  "reportAssignmentType": false,
+  "executionEnvironments": [
+    {
+      "root": "compliance-rag-agent/backend",
+      "extraPaths": [
+        "compliance-rag-agent/backend",
+        "compliance-rag-agent/backend/apps"
+      ]
+    }
+  ]
+}

@@ -1,10 +1,10 @@
 """
 Regulation Parsers Package.
 """
-from apps.compliance_core.ingestion.parsers.base import AbstractBaseRegulationParser
-from apps.compliance_core.ingestion.parsers.eawr import EAWRParser
-from apps.compliance_core.ingestion.parsers.esf_bpg4 import ESFBPG4Parser
-from apps.compliance_core.ingestion.parsers.registry import (
+from .base import AbstractBaseRegulationParser
+from .eawr import EAWRParser
+from .esf_bpg4 import ESFBPG4Parser
+from .registry import (
     RegulationParserRegistry,
     GenericRegulationParser,
     get_parser_registry

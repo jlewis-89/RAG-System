@@ -78,7 +78,7 @@ class ChromaDBService:
         target_collection.upsert(
             ids=ids,
             documents=documents,
-            metadatas=metadatas
+            metadatas=metadatas  # type: ignore
         )
         return len(ids)
 
@@ -88,7 +88,7 @@ class ChromaDBService:
         n_results: int = 4,
         where_filter: Optional[Dict[str, Any]] = None,
         collection_name: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> Any:
         """
         Query vector store for the most relevant document chunks based on semantic similarity.
         """

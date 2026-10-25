@@ -1,0 +1,11 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": [
+    ".",
+    "apps"
+  ],
+  "reportAttributeAccessIssue": false,
+  "reportArgumentType": false,
+  "reportAssignmentType": false
+}

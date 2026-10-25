@@ -8,8 +8,8 @@ and statutory defense availability under Regulation 29.
 import re
 import logging
 from typing import List, Dict, Any, Optional
-from apps.compliance_core.schemas import RegulatoryChunk, DutyHolderType, DocumentType
-from apps.compliance_core.ingestion.parsers.base import AbstractBaseRegulationParser
+from ...schemas import RegulatoryChunk, DutyHolderType, DocumentType
+from .base import AbstractBaseRegulationParser
 
 logger = logging.getLogger(__name__)
 
